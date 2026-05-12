@@ -12,10 +12,6 @@ rust-version = "1.94"
 version.workspace = true
 
 [dependencies]
-futures = { version = "0.3.25", optional = true }
-hashbrown = "0.14.1"
-indexmap = { version = "2.0.2", features = ["std"] }
-paste = "1.0.9"
 sycamore-core = { workspace = true }
 sycamore-futures = { workspace = true, optional = true }
 sycamore-macro = { workspace = true }
@@ -36,7 +32,6 @@ default = ["web", "wasm-bindgen-interning"]
 nightly = ["sycamore-reactive/nightly"]
 hydrate = ["web", "sycamore-web/hydrate"]
 suspense = [
-	"futures",
 	"wasm-bindgen-futures",
 	"sycamore-futures",
 	"sycamore-core/suspense",

@@ -33,18 +33,17 @@ impl<T: Into<Self>> Trackable for MaybeDyn<T> {
 }
 
 macro_rules! impl_trackable_deps_for_tuple {
-    ($($T:tt),*) => {
-        paste::paste! {
-            impl<$($T,)*> Trackable for ($($T,)*)
-            where
-                $($T: Trackable,)*
-            {
-                fn _track(&self) {
-                    let ($([<$T:lower>],)*) = self;
-                    $(
-                        [<$T:lower>]._track();
-                    )*
-                }
+    ($($T:ident),*) => {
+        impl<$($T,)*> Trackable for ($($T,)*)
+        where
+            $($T: Trackable,)*
+        {
+            #[allow(non_snake_case)]
+            fn _track(&self) {
+                let ($($T,)*) = self;
+                $(
+                    $T._track();
+                )*
             }
         }
     }

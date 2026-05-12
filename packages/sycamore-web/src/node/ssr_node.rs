@@ -1,8 +1,5 @@
 use std::any::{Any, TypeId};
-use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-
-use once_cell::sync::Lazy;
 
 use crate::*;
 
@@ -172,14 +169,9 @@ impl ViewHtmlNode for SsrNode {
 }
 
 /// A list of all the void HTML elements. We need this to know how to render them to a string.
-static VOID_ELEMENTS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
-    [
-        "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
-        "source", "track", "wbr", "command", "keygen", "menuitem",
-    ]
-    .into_iter()
-    .collect()
-});
+fn is_void_element(s: &str) -> bool {
+    matches!(s, "area" | "base" | "br" | "col" | "embed" | "hr" | "img" | "input" | "link" | "meta" | "param" | "source" | "track" | "wbr" | "command" | "keygen" | "menuitem")
+}
 
 /// Recursively render `node` by appending to `buf`.
 pub(crate) fn render_recursive(node: &SsrNode, buf: &mut String) {
@@ -215,7 +207,7 @@ pub(crate) fn render_recursive(node: &SsrNode, buf: &mut String) {
             }
             buf.push('>');
 
-            let is_void = VOID_ELEMENTS.contains(tag.as_ref());
+            let is_void = is_void_element(tag.as_ref());
 
             if is_void {
                 assert!(

@@ -11,8 +11,6 @@ repository = "https://github.com/sycamore-rs/sycamore"
 version.workspace = true
 
 [dependencies]
-hashbrown = "0.14.1"
-paste = "1.0.14"
 sycamore-futures = { workspace = true, optional = true }
 sycamore-reactive = { workspace = true }
 

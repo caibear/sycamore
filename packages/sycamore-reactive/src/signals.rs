@@ -162,7 +162,7 @@ impl<T> ReadSignal<T> {
                 .expect("cannot read signal while updating"),
             |nodes| match nodes.get(self.id) {
                 Some(node) => node,
-                None => panic!("{}", self.get_disposed_panic_message()),
+                None => self.panic_disposed(),
             },
         )
     }
@@ -177,7 +177,7 @@ impl<T> ReadSignal<T> {
                 .expect("cannot update signal while reading"),
             |nodes| match nodes.get_mut(self.id) {
                 Some(node) => node,
-                None => panic!("{}", self.get_disposed_panic_message()),
+                None => self.panic_disposed(),
             },
         )
     }
@@ -193,12 +193,12 @@ impl<T> ReadSignal<T> {
         NodeHandle(self.id, self.root).dispose();
     }
 
-    fn get_disposed_panic_message(self) -> String {
+    fn panic_disposed(self) -> ! {
         #[cfg(not(debug_assertions))]
-        return "signal was disposed".to_string();
+        panic!("signal was disposed");
 
         #[cfg(debug_assertions)]
-        return format!("signal was disposed. Created at {}", self.created_at);
+        panic!("signal was disposed. Created at {}", self.created_at);
     }
 
     /// Get the value of the signal without tracking it. The type must implement [`Copy`]. If this
