@@ -58,7 +58,7 @@ default-members = [
 version = "0.9.2"
 
 [workspace.dependencies]
-sycamore = { path = "packages/sycamore", version = "0.9.2" }
+sycamore = { path = "packages/sycamore", version = "0.9.2", default-features = false }
 sycamore-core = { path = "packages/sycamore-core", version = "0.9.2" }
 sycamore-futures = { path = "packages/sycamore-futures", version = "0.9.2" }
 sycamore-macro = { path = "packages/sycamore-macro", version = "0.9.2" }
