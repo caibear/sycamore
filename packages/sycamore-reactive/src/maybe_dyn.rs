@@ -21,10 +21,7 @@ use crate::*;
 /// we cannot provide a blanket implementation for all types `T` to convert into `MaybeDyn<T>`
 /// because of specialization. Instead, we can only implement it for specific types.
 #[derive(Clone)]
-pub enum MaybeDyn<T>
-where
-    T: Into<Self> + 'static,
-{
+pub enum MaybeDyn<T: 'static> {
     /// A static value.
     Static(T),
     /// A dynamic value backed by a signal.
@@ -33,7 +30,12 @@ where
     Derived(Rc<dyn Fn() -> Self>),
 }
 
-impl<T: Into<Self> + 'static> MaybeDyn<T> {
+impl<T> MaybeDyn<T> {
+    /// Create a derived signal from a function. Doesn't require any `From` impls.
+    pub fn derive(f: impl Fn() -> T + 'static) -> Self {
+        Self::Derived(Rc::new(move || Self::Static(f())))
+    }
+
     /// Get the value by consuming itself. Unlike [`get_clone`](Self::get_clone), this method avoids
     /// a clone if we are just storing a static value.
     pub fn evaluate(self) -> T
@@ -94,7 +96,7 @@ impl<T: Into<Self> + 'static> MaybeDyn<T> {
     }
 }
 
-impl<T: Into<Self>, U: Into<MaybeDyn<T>> + Clone> From<ReadSignal<U>> for MaybeDyn<T> {
+impl<T, U: Into<MaybeDyn<T>> + Clone> From<ReadSignal<U>> for MaybeDyn<T> {
     fn from(val: ReadSignal<U>) -> Self {
         // Check if U == T, i.e. ReadSignal<U> is actually a ReadSignal<T>.
         //
@@ -110,14 +112,14 @@ impl<T: Into<Self>, U: Into<MaybeDyn<T>> + Clone> From<ReadSignal<U>> for MaybeD
     }
 }
 
-impl<T: Into<Self>, U: Into<MaybeDyn<T>> + Clone> From<Signal<U>> for MaybeDyn<T> {
+impl<T, U: Into<MaybeDyn<T>> + Clone> From<Signal<U>> for MaybeDyn<T> {
     fn from(val: Signal<U>) -> Self {
         Self::from(*val)
     }
 }
 
 // TODO: add #[diagnostic::do_not_recommend] when it is stabilized.
-impl<F, U, T: Into<Self>> From<F> for MaybeDyn<T>
+impl<F, U, T> From<F> for MaybeDyn<T>
 where
     F: Fn() -> U + 'static,
     U: Into<MaybeDyn<T>>,
