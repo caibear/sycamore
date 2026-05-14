@@ -319,6 +319,8 @@ pub mod tags {
             formnovalidate: impl Into<MaybeDyn<bool>>,
             formtarget: impl Into<StringAttribute>,
             name: impl Into<StringAttribute>,
+            popovertarget: impl Into<StringAttribute>,
+            popovertargetaction: impl Into<StringAttribute>,
             r#type("type"): impl Into<StringAttribute>,
             value: impl Into<StringAttribute>,
         },
