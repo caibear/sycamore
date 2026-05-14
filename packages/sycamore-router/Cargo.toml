@@ -11,7 +11,7 @@ repository = "https://github.com/sycamore-rs/sycamore"
 version.workspace = true
 
 [dependencies]
-sycamore = { workspace = true }
+sycamore = { workspace = true, default-features = false }
 sycamore-router-macro = { workspace = true }
 wasm-bindgen = "0.2.83"
 
