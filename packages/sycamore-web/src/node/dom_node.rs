@@ -1,4 +1,5 @@
-use std::any::{Any, TypeId};
+// TODO reimplement String optimization.
+// use std::any::{Any, TypeId};
 
 use wasm_bindgen::intern;
 
@@ -27,64 +28,70 @@ impl ViewNode for DomNode {
     }
 }
 
-/// Internal implementation that is shared between `DomNode` and `HydrateNode`.
 pub(crate) fn _create_dynamic_view<T: ViewHtmlNode, U: Into<View<T>> + 'static>(
     mut f: impl FnMut() -> U + 'static,
 ) -> View<T> {
+    create_dynamic_view_inner(Box::new(move || f().into()))
+}
+
+/// Internal implementation that is shared between `DomNode` and `HydrateNode`.
+pub(crate) fn create_dynamic_view_inner<T: ViewHtmlNode>(
+    mut f: Box<dyn FnMut() -> View<T> + 'static>,
+) -> View<T> {
+    // TODO reimplement String optimization.
     // If `view` is just a single text node, we can just return this node and set up an
     // effect to update its text value without ever creating more nodes.
-    if TypeId::of::<U>() == TypeId::of::<String>() {
-        create_effect_initial(move || {
-            let mut value = Some(f());
-            let text: &mut Option<String> = (&mut value as &mut dyn Any).downcast_mut().unwrap();
-            let view = View::from_node(T::create_dynamic_text_node(text.take().unwrap().into()));
-            debug_assert_eq!(
-                view.nodes.len(),
-                1,
-                "dynamic text view should have exactly one text node"
-            );
-            let node = view.nodes[0].as_web_sys().clone();
-            (
-                Box::new(move || {
-                    let text = f();
-                    let text = (&text as &dyn Any).downcast_ref::<String>().unwrap();
-                    node.set_text_content(Some(text));
-                }),
-                view,
-            )
-        })
-    } else {
-        let start = T::create_marker_node();
-        let start_node = start.as_web_sys().clone();
-        let end = T::create_marker_node();
-        let end_node = end.as_web_sys().clone();
-        let view = create_effect_initial(move || {
-            let view = f().into();
-            (
-                Box::new(move || {
-                    let new = f().into();
-                    if let Some(parent) = start_node.parent_node() {
-                        // Clear all the old nodes away.
-                        let old = utils::get_nodes_between(&start_node, &end_node);
-                        for node in old {
-                            parent.remove_child(&node).unwrap();
-                        }
-                        // Insert the new nodes in their place.
-                        for node in new.nodes {
-                            parent
-                                .insert_before(node.as_web_sys(), Some(&end_node))
-                                .unwrap();
-                        }
-                    } else if cfg!(debug_assertions) {
-                        console_warn!("cannot update a dynamic view if it is not mounted");
+    // if TypeId::of::<U>() == TypeId::of::<String>() {
+    //     create_effect_initial(move || {
+    //         let mut value = Some(f());
+    //         let text: &mut Option<String> = (&mut value as &mut dyn Any).downcast_mut().unwrap();
+    //         let view = View::from_node(T::create_dynamic_text_node(text.take().unwrap().into()));
+    //         debug_assert_eq!(
+    //             view.nodes.len(),
+    //             1,
+    //             "dynamic text view should have exactly one text node"
+    //         );
+    //         let node = view.nodes[0].as_web_sys().clone();
+    //         (
+    //             Box::new(move || {
+    //                 let text = f();
+    //                 let text = (&text as &dyn Any).downcast_ref::<String>().unwrap();
+    //                 node.set_text_content(Some(text));
+    //             }),
+    //             view,
+    //         )
+    //     })
+    // } else {
+    let start = T::create_marker_node();
+    let start_node = start.as_web_sys().clone();
+    let end = T::create_marker_node();
+    let end_node = end.as_web_sys().clone();
+    let view = create_effect_initial(move || {
+        let view = f();
+        (
+            Box::new(move || {
+                let new = f();
+                if let Some(parent) = start_node.parent_node() {
+                    // Clear all the old nodes away.
+                    let old = utils::get_nodes_between(&start_node, &end_node);
+                    for node in old {
+                        parent.remove_child(&node).unwrap();
                     }
-                }),
-                view,
-            )
-        });
+                    // Insert the new nodes in their place.
+                    for node in new.nodes {
+                        parent
+                            .insert_before(node.as_web_sys(), Some(&end_node))
+                            .unwrap();
+                    }
+                } else if cfg!(debug_assertions) {
+                    console_warn!("cannot update a dynamic view if it is not mounted");
+                }
+            }),
+            view,
+        )
+    });
 
-        View::from((start, view, end))
-    }
+    View::from((start, view, end))
 }
 
 impl ViewHtmlNode for DomNode {
