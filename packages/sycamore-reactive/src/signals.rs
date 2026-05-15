@@ -120,6 +120,18 @@ pub fn create_signal<T>(value: T) -> Signal<T> {
 /// Creates a new [`Signal`] with the `value` field set to `None`.
 #[cfg_attr(debug_assertions, track_caller)]
 pub(crate) fn create_empty_signal<T>() -> Signal<T> {
+    let signal = create_empty_signal_inner();
+    Signal(ReadSignal {
+        id: signal.0.id,
+        root: signal.0.root,
+        #[cfg(debug_assertions)]
+        created_at: signal.0.created_at,
+        _phantom: PhantomData,
+    })
+}
+
+#[cfg_attr(debug_assertions, track_caller)]
+fn create_empty_signal_inner() -> Signal<()> {
     let root = Root::global();
     let id = root.nodes.borrow_mut().insert(ReactiveNode {
         value: None,
