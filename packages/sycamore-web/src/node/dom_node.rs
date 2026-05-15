@@ -180,11 +180,14 @@ impl ViewHtmlNode for DomNode {
         name: Cow<'static, str>,
         handler: impl FnMut(web_sys::Event) + 'static,
     ) {
-        let cb = Closure::wrap(Box::new(handler) as Box<dyn FnMut(_)>);
-        self.raw
-            .add_event_listener_with_callback(&name, cb.as_ref().unchecked_ref())
-            .unwrap();
-        on_cleanup(|| drop(cb));
+        set_event_handler_inner(self, name, Box::new(handler) as Box<dyn FnMut(_)>);
+        fn set_event_handler_inner(me: &mut DomNode, name: Cow<'static, str>, handler: Box<dyn FnMut(web_sys::Event)>) {
+            let cb = Closure::wrap(handler);
+            me.raw
+                .add_event_listener_with_callback(&name, cb.as_ref().unchecked_ref())
+                .unwrap();
+            on_cleanup(|| drop(cb));
+        }
     }
 
     fn set_inner_html(&mut self, inner_html: Cow<'static, str>) {
