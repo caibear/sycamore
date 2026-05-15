@@ -398,11 +398,15 @@ pub fn create_child_scope(f: impl FnOnce()) -> NodeHandle {
 /// ```
 #[cfg_attr(debug_assertions, track_caller)]
 pub fn on_cleanup(f: impl FnOnce() + 'static) {
-    let root = Root::global();
-    if !root.current_node.get().is_null() {
-        root.nodes.borrow_mut()[root.current_node.get()]
-            .cleanups
-            .push(Box::new(f));
+    on_cleanup_inner(Box::new(f));
+
+    fn on_cleanup_inner(f: Box<dyn FnOnce() + 'static>) {
+        let root = Root::global();
+        if !root.current_node.get().is_null() {
+            root.nodes.borrow_mut()[root.current_node.get()]
+                .cleanups
+                .push(f);
+        }
     }
 }
 
