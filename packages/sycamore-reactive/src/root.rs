@@ -153,7 +153,8 @@ impl Root {
         // running update itself.
         let mut nodes_mut = self.nodes.borrow_mut();
         let mut callback = nodes_mut[current].callback.take().unwrap();
-        let mut value = nodes_mut[current].value.take().unwrap();
+        let mut value = nodes_mut[current].value.take();
+        debug_assert!(value.is_some());
         drop(nodes_mut); // End RefMut borrow.
 
         NodeHandle(current, self).dispose_children(); // Destroy anything created in a previous update.
@@ -166,7 +167,7 @@ impl Root {
 
         let mut nodes_mut = self.nodes.borrow_mut();
         nodes_mut[current].callback = Some(callback); // Put the callback back in.
-        nodes_mut[current].value = Some(value);
+        nodes_mut[current].value = value;
 
         // Mark this node as clean.
         nodes_mut[current].state = NodeState::Clean;

@@ -17,7 +17,7 @@ pub(crate) struct ReactiveNode {
     /// Callback when node needs to be updated. Returns a `bool` indicating whether the value has
     /// changed or not.
     #[allow(clippy::type_complexity)]
-    pub callback: Option<Box<dyn FnMut(&mut Box<dyn Any>) -> bool>>,
+    pub callback: Option<Box<dyn FnMut(&mut Option<Box<dyn Any>>) -> bool>>,
     /// Nodes that are owned by this node.
     pub children: Vec<NodeId>,
     /// The parent of this node (i.e. the node that owns this node). If there is no parent, then
