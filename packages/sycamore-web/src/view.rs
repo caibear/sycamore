@@ -1,11 +1,17 @@
 //! This module contains the [`View`] struct which represents a view tree.
 
 use std::fmt;
-
-use smallvec::{smallvec, SmallVec};
 use sycamore_core::Children;
-
 use crate::*;
+
+#[cfg(feature = "smallvec")]
+type SmallVec<T> = smallvec::SmallVec<[T; 1]>;
+#[cfg(not(feature = "smallvec"))]
+type SmallVec<T> = Vec<T>;
+#[cfg(feature = "smallvec")]
+use smallvec::smallvec;
+#[cfg(not(feature = "smallvec"))]
+use std::vec as smallvec;
 
 /// Represents a view tree.
 ///
@@ -13,7 +19,7 @@ use crate::*;
 /// components.
 pub struct View<T = HtmlNode> {
     /// The nodes in the view tree.
-    pub(crate) nodes: SmallVec<[T; 1]>,
+    pub(crate) nodes: SmallVec<T>,
 }
 
 impl<T> View<T> {

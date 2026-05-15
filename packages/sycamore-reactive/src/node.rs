@@ -3,7 +3,6 @@
 use std::any::Any;
 
 use slotmap::new_key_type;
-use smallvec::SmallVec;
 
 use crate::{untrack_in_scope, Root};
 
@@ -27,7 +26,7 @@ pub(crate) struct ReactiveNode {
     /// Nodes that depend on this node.
     pub dependents: Vec<NodeId>,
     /// Nodes that this node depends on.
-    pub dependencies: SmallVec<[NodeId; 1]>,
+    pub dependencies: crate::smallvec::SmallVec<NodeId>,
     /// Callbacks called when node is disposed.
     pub cleanups: Vec<Box<dyn FnOnce()>>,
     /// Context values stored in this node.
@@ -79,7 +78,7 @@ impl NodeHandle {
             for dependent in this.dependents {
                 // dependent might have been removed if it is a child node.
                 if let Some(dependent) = nodes.get_mut(dependent) {
-                    dependent.dependencies.retain(|&mut id| id != self.0);
+                    dependent.dependencies.retain(|id| *id != self.0);
                 }
             }
         }

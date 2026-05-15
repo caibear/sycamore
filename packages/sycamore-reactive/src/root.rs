@@ -6,7 +6,6 @@
 use std::cell::{Cell, RefCell};
 
 use slotmap::{Key, SlotMap};
-use smallvec::SmallVec;
 
 use crate::*;
 
@@ -317,7 +316,7 @@ impl RootHandle {
 #[derive(Default)]
 pub(crate) struct DependencyTracker {
     /// A list of reactive nodes that were accessed.
-    pub dependencies: SmallVec<[NodeId; 1]>,
+    pub dependencies: crate::smallvec::SmallVec<NodeId>,
 }
 
 impl DependencyTracker {

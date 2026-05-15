@@ -28,7 +28,7 @@ wasm-bindgen-test = "0.3.33"
 web-sys = { version = "0.3.60", features = ["HtmlInputElement"] }
 
 [features]
-default = ["web", "wasm-bindgen-interning"]
+default = ["smallvec", "web", "wasm-bindgen-interning"]
 nightly = ["sycamore-reactive/nightly"]
 hydrate = ["web", "sycamore-web/hydrate"]
 suspense = [
@@ -42,6 +42,10 @@ wasm-bindgen-interning = [
 	"web",
 	"dep:wasm-bindgen",
 	"wasm-bindgen/enable-interning",
+]
+smallvec = [
+	"sycamore-web/smallvec",
+	"sycamore-reactive/smallvec",
 ]
 web = ["dep:wasm-bindgen", "dep:web-sys", "dep:sycamore-web"]
 

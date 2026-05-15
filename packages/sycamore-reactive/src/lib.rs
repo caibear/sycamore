@@ -48,6 +48,7 @@ mod node;
 mod root;
 mod signals;
 mod utils;
+mod smallvec;
 
 pub use context::*;
 pub use effects::*;
