@@ -1,6 +1,6 @@
 //! Side effects!
 
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::create_memo;
@@ -61,7 +61,7 @@ pub fn create_effect(f: impl FnMut() + 'static) {
 pub fn create_effect_initial<T: 'static>(
     initial: impl FnOnce() -> (Box<dyn FnMut() + 'static>, T) + 'static,
 ) -> T {
-    let ret = Rc::new(RefCell::new(None));
+    let ret = Rc::new(Cell::new(None));
     let mut initial = Some(initial);
     let mut effect = None;
 
@@ -71,7 +71,7 @@ pub fn create_effect_initial<T: 'static>(
             if let Some(initial) = initial.take() {
                 let (new_f, value) = initial();
                 effect = Some(new_f);
-                *ret.borrow_mut() = Some(value);
+                ret.set(Some(value));
             } else {
                 effect.as_mut().unwrap()()
             }
