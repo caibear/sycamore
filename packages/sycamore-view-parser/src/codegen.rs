@@ -5,9 +5,8 @@
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Expr, Pat};
 
-use crate::ir::{DynNode, Node, Prop, PropType, Root, TagIdent, TagNode, TextNode};
+use crate::ir::{Node, Prop, PropType, Root, TagIdent, TagNode};
 
 pub struct Codegen {
     // TODO: configure mode: Client, Hydrate, SSR
@@ -39,22 +38,8 @@ impl Codegen {
                     self.element(tag)
                 }
             }
-            Node::Text(TextNode { value }) => quote! {
-                ::std::convert::Into::<::sycamore::rt::View>::into(#value)
-            },
-            Node::Dyn(DynNode { value }) => {
-                let is_dynamic = is_dyn(value);
-                if is_dynamic {
-                    quote! {
-                        ::sycamore::rt::View::from_dynamic(
-                            move || ::std::convert::Into::<::sycamore::rt::View>::into(#value)
-                        )
-                    }
-                } else {
-                    quote! {
-                        ::std::convert::Into::<::sycamore::rt::View>::into(#value)
-                    }
-                }
+            Node::Expr(expr) => quote! {
+                ::std::convert::Into::<::sycamore::rt::View>::into(#expr)
             }
         }
     }
@@ -83,7 +68,7 @@ impl Codegen {
                     )
                 }
             }
-            TagIdent::Hyphenated(tag) => quote! {
+            TagIdent::Custom(tag) => quote! {
                 ::sycamore::rt::View::from(
                     ::sycamore::rt::custom_element(#tag).children(::std::vec![#(#children),*])#(#attributes)*
                 )
@@ -93,33 +78,23 @@ impl Codegen {
 
     pub fn attribute(&self, attr: &Prop) -> TokenStream {
         let value = &attr.value;
-        let is_dynamic = is_dyn(value);
-        let dyn_value = if is_dynamic {
-            quote! { move || #value }
-        } else {
-            quote! { #value }
-        };
         match &attr.ty {
             PropType::Plain { ident } => {
-                quote! { .#ident(#dyn_value) }
+                quote! { .#ident(#value) }
             }
-            PropType::PlainHyphenated { ident } => {
-                quote! { .attr(#ident, #dyn_value) }
-            }
-            PropType::PlainQuoted { ident } => {
-                quote! { .attr(#ident, #dyn_value) }
+            PropType::Custom { name: ident } => {
+                quote! { .attr(#ident, #value) }
             }
             PropType::Directive { dir, ident } => match dir.to_string().as_str() {
                 "on" => quote! { .on(::sycamore::rt::events::#ident, #value) },
                 "prop" => {
                     let ident = ident.to_string();
-                    quote! { .prop(#ident, #dyn_value) }
+                    quote! { .prop(#ident, #value) }
                 }
                 "bind" => quote! { .bind(::sycamore::rt::bind::#ident, #value) },
                 _ => syn::Error::new(dir.span(), format!("unknown directive `{dir}`"))
                     .to_compile_error(),
             },
-            PropType::Ref => quote! { .r#ref(#value) },
             PropType::Spread => quote! { .spread(#value) },
         }
     }
@@ -134,7 +109,7 @@ impl Codegen {
     ) -> TokenStream {
         let ident = match ident {
             TagIdent::Path(path) => path,
-            TagIdent::Hyphenated(_) => unreachable!("hyphenated tags are not components"),
+            TagIdent::Custom(_) => unreachable!("hyphenated tags are not components"),
         };
 
         let plain = props
@@ -194,111 +169,6 @@ fn is_component(ident: &TagIdent) -> bool {
                     .is_ascii_uppercase()
         }
         // A hyphenated tag is always a custom-element and therefore never a component.
-        TagIdent::Hyphenated(_) => false,
+        TagIdent::Custom(_) => false,
     }
-}
-
-fn is_dyn(ex: &Expr) -> bool {
-    match ex {
-        Expr::Lit(_) | Expr::Closure(_) | Expr::Path(_) => false,
-
-        Expr::Field(f) => is_dyn(&f.base),
-        Expr::Paren(p) => is_dyn(&p.expr),
-        Expr::Group(g) => is_dyn(&g.expr),
-        Expr::Tuple(t) => t.elems.iter().any(is_dyn),
-        Expr::Array(a) => a.elems.iter().any(is_dyn),
-        Expr::Repeat(r) => is_dyn(&r.expr) || is_dyn(&r.len),
-        Expr::Struct(s) => s.fields.iter().any(|fv: &syn::FieldValue| is_dyn(&fv.expr)),
-
-        Expr::Cast(c) => is_dyn(&c.expr),
-        Expr::Macro(m) => is_dyn_macro(&m.mac),
-        Expr::Block(b) => is_dyn_block(&b.block),
-        Expr::Const(_const_block) => false,
-
-        Expr::Loop(l) => is_dyn_block(&l.body),
-        Expr::While(w) => is_dyn(&w.cond) || is_dyn_block(&w.body),
-        Expr::ForLoop(f) => is_dyn_pattern(&f.pat) || is_dyn(&f.expr) || is_dyn_block(&f.body),
-        Expr::Break(_) | Expr::Continue(_) => false,
-
-        Expr::Let(e) => is_dyn_pattern(&e.pat) || is_dyn(&e.expr),
-
-        Expr::Match(m) => {
-            is_dyn(&m.expr)
-                || m.arms.iter().any(|a: &syn::Arm| {
-                    is_dyn_pattern(&a.pat)
-                        || a.guard.as_ref().is_some_and(|(_, g_expr)| is_dyn(g_expr))
-                        || is_dyn(&a.body)
-                })
-        }
-
-        Expr::If(i) => {
-            is_dyn(&i.cond)
-                || is_dyn_block(&i.then_branch)
-                || i.else_branch.as_ref().is_some_and(|(_, e)| is_dyn(e))
-        }
-
-        Expr::Unary(u) => is_dyn(&u.expr),
-        Expr::Binary(b) => is_dyn(&b.left) || is_dyn(&b.right),
-        Expr::Index(i) => is_dyn(&i.expr) || is_dyn(&i.index),
-        Expr::Range(r) => {
-            r.start.as_deref().is_some_and(is_dyn) || r.end.as_deref().is_some_and(is_dyn)
-        }
-
-        _ => true,
-    }
-}
-
-fn is_dyn_pattern(pat: &Pat) -> bool {
-    match pat {
-        Pat::Wild(_) | Pat::Lit(_) | Pat::Path(_) | Pat::Rest(_) | Pat::Type(_) | Pat::Const(_) => {
-            false
-        }
-
-        Pat::Paren(p) => is_dyn_pattern(&p.pat),
-        Pat::Or(o) => o.cases.iter().any(is_dyn_pattern),
-        Pat::Tuple(t) => t.elems.iter().any(is_dyn_pattern),
-        Pat::TupleStruct(s) => s.elems.iter().any(is_dyn_pattern),
-        Pat::Slice(s) => s.elems.iter().any(is_dyn_pattern),
-        Pat::Range(r) => {
-            r.start.as_deref().is_some_and(is_dyn) || r.end.as_deref().is_some_and(is_dyn)
-        }
-
-        Pat::Reference(r) => r.mutability.is_some(),
-        Pat::Ident(id) => {
-            (id.by_ref.is_some() && id.mutability.is_some())
-                || id
-                    .subpat
-                    .as_ref()
-                    .is_some_and(|(_, pat)| is_dyn_pattern(pat))
-        }
-
-        Pat::Struct(s) => s
-            .fields
-            .iter()
-            .any(|fp: &syn::FieldPat| is_dyn_pattern(&fp.pat)),
-
-        // syn::Pat is non-exhaustive
-        _ => true,
-    }
-}
-
-fn is_dyn_macro(m: &syn::Macro) -> bool {
-    // Bodies of nested inner view! macros will be checked for dynamic
-    // parts when their own codegen is run.
-
-    m.path.get_ident().is_none_or(|ident| ident != "view")
-}
-
-fn is_dyn_block(block: &syn::Block) -> bool {
-    block.stmts.iter().any(|s: &syn::Stmt| match s {
-        syn::Stmt::Expr(ex, _) => is_dyn(ex),
-        syn::Stmt::Macro(m) => is_dyn_macro(&m.mac),
-        syn::Stmt::Local(loc) => {
-            is_dyn_pattern(&loc.pat)
-                || loc.init.as_ref().is_some_and(|i| {
-                    is_dyn(&i.expr) || i.diverge.as_ref().is_some_and(|(_, ex)| is_dyn(ex))
-                })
-        }
-        syn::Stmt::Item(_) => false,
-    })
 }

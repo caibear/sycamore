@@ -367,9 +367,31 @@ impl<T> ReadSignal<T> {
     /// state.set(1); // Prints "Yipee!"
     /// # });
     /// ```
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn track(self) {
         if let Some(tracker) = &mut *self.root.tracker.borrow_mut() {
             tracker.dependencies.push(self.id);
+        } else {
+            #[cfg(debug_assertions)]
+            // TODO: There are lots of failing tests without this.
+            #[cfg(target_arch = "wasm32")]
+            panic!("
+You accessed a ReadSignal (defined at {}) outside a reactive tracking context. This might mean your app is not responding to changes in signal values in the way you expect.
+
+Here’s how to fix it:
+
+1. If this is inside a `view!` macro, make sure you are passing a function, not a value.
+  ❌ NO  p {{ (x.get() * 2) }}
+  ✅ YES p {{ (move || x.get() * 2) }}
+
+2. If it’s in the body of a component, try wrapping this access in a closure: 
+  ❌ NO  let y = x.get() * 2;
+  ✅ YES let y = move || x.get() * 2;
+
+3. If you’re *trying* to access the value without tracking, use `.get_untracked()` or `.with_untracked()` instead.
+  ❌ NO  on:click=move |_| count.set(count.get() + 1),
+  ✅ YES on:click=move |_| count.set(count.get_untracked() + 1),
+            ", self.created_at);
         }
     }
 }

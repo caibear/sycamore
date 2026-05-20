@@ -72,7 +72,8 @@ pub fn Suspense(props: SuspenseProps) -> View {
             // We make sure to return a closure so that the view can be properly hydrated.
             SsrMode::Sync => view! {
                 Show(when=true) {
-                    (fallback())
+                    // TODO: added move || to fix node::ssr_render::tests::render_to_string_renders_fallback.
+                    (move || fallback())
                 }
                 Show(when=false) {}
             },

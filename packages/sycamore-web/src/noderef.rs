@@ -65,7 +65,7 @@ impl NodeRef {
     /// Tries to get the raw web_sys node stored inside the node ref. Returns `None` if the node
     /// ref has not yet been set (i.e. the node has not yet been rendered into the DOM).
     pub fn try_get(&self) -> Option<web_sys::Node> {
-        self.0.get_clone()
+        self.0.get_clone_untracked()
     }
 
     /// Sets the node ref with the specified node.
@@ -86,7 +86,7 @@ impl NodeRef {
     /// }
     /// ```
     pub fn set(&self, node: Option<web_sys::Node>) {
-        self.0.set(node);
+        self.0.set_silent(node);
     }
 }
 

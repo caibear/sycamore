@@ -3,7 +3,7 @@
 use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Brace, Paren};
-use syn::{braced, parenthesized, token, Ident, LitStr, Result, Token};
+use syn::{Expr, ExprLit, Ident, Lit, LitStr, Result, Token, braced, parenthesized};
 
 use crate::ir::*;
 
@@ -19,16 +19,22 @@ impl Parse for Root {
     }
 }
 
+enum NodeParseType {
+    Tag,
+    TextExpr,
+    Expr,
+}
+
 impl Node {
-    fn peek_type(input: ParseStream) -> Option<NodeType> {
+    fn peek_type(input: ParseStream) -> Option<NodeParseType> {
         let input = input.fork(); // do not affect original ParseStream
 
         if input.peek(LitStr) {
-            Some(NodeType::Text)
+            Some(NodeParseType::TextExpr)
         } else if input.peek(Paren) {
-            Some(NodeType::Dyn)
+            Some(NodeParseType::Expr)
         } else if input.peek(Token![::]) || input.peek(Ident::peek_any) {
-            Some(NodeType::Tag)
+            Some(NodeParseType::Tag)
         } else {
             None
         }
@@ -43,9 +49,18 @@ impl Parse for Node {
         };
 
         Ok(match ty {
-            NodeType::Tag => Self::Tag(input.parse()?),
-            NodeType::Text => Self::Text(input.parse()?),
-            NodeType::Dyn => Self::Dyn(input.parse()?),
+            NodeParseType::Tag => Self::Tag(input.parse()?),
+            NodeParseType::TextExpr => {
+                Self::Expr(Expr::Lit(ExprLit {
+                    attrs: Default::default(),
+                    lit: Lit::Str(input.parse()?),
+                }))
+            },
+            NodeParseType::Expr => {
+                let content;
+                parenthesized!(content in input);
+                Self::Expr(content.parse()?)
+            },
         })
     }
 }
@@ -54,7 +69,7 @@ impl Parse for TagNode {
     fn parse(input: ParseStream) -> Result<Self> {
         let ident = input.parse()?;
 
-        let has_paren = input.peek(token::Paren);
+        let has_paren = input.peek(Paren);
         let attrs = if has_paren {
             let content;
             parenthesized!(content in input);
@@ -66,12 +81,13 @@ impl Parse for TagNode {
             Vec::new()
         };
 
-        if !has_paren && !input.peek(Brace) {
+        let has_brace = input.peek(Brace);
+        if !has_paren && !has_brace {
             return Err(input.error("expected either `(` or `{` after element tag"));
         }
 
         let mut children = Vec::new();
-        if input.peek(Brace) {
+        if has_brace {
             let content;
             braced!(content in input);
             while !content.is_empty() {
@@ -101,7 +117,7 @@ impl Parse for TagIdent {
                 .map(|i| i.to_string())
                 .collect::<Vec<_>>()
                 .join("-");
-            Ok(Self::Hyphenated(tag))
+            Ok(Self::Custom(tag))
         } else {
             Ok(Self::Path(input.parse()?))
         }
@@ -134,48 +150,28 @@ impl Parse for PropType {
                     let _: Token![-] = input.parse()?;
                     segments.push(input.call(Ident::parse_any)?);
                 }
-                let ident = segments
+                let name = segments
                     .into_iter()
                     .map(|i| i.to_string())
                     .collect::<Vec<_>>()
                     .join("-");
-                Ok(Self::PlainHyphenated { ident })
+                Ok(Self::Custom { name })
             } else {
-                let name: Ident = input.call(Ident::parse_any)?;
+                let first_ident: Ident = input.call(Ident::parse_any)?;
 
-                if name == "ref" {
-                    Ok(Self::Ref)
-                } else if input.peek(Token![:]) {
+                if input.peek(Token![:]) {
                     let _colon: Token![:] = input.parse()?;
                     let ident = input.call(Ident::parse_any)?;
-                    Ok(Self::Directive { dir: name, ident })
+                    Ok(Self::Directive { dir: first_ident, ident })
                 } else {
-                    Ok(Self::Plain { ident: name })
+                    Ok(Self::Plain { ident: first_ident })
                 }
             }
         } else if lookahead.peek(LitStr) {
             let name: String = <LitStr as Parse>::parse(input).map(|s| s.value())?;
-            Ok(Self::PlainQuoted { ident: name })
+            Ok(Self::Custom { name })
         } else {
             Err(lookahead.error())
         }
-    }
-}
-
-impl Parse for TextNode {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self {
-            value: input.parse()?,
-        })
-    }
-}
-
-impl Parse for DynNode {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let content;
-        parenthesized!(content in input);
-        Ok(Self {
-            value: content.parse()?,
-        })
     }
 }

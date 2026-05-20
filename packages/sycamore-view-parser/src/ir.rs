@@ -2,23 +2,19 @@
 
 use proc_macro2::Span;
 use syn::spanned::Spanned;
-use syn::{Expr, Ident, LitStr, Path};
+use syn::{Expr, Ident, Path};
 
 /// A list of nodes. This is the top-level syntax node and entry-point for parsing.
 pub struct Root(pub Vec<Node>);
 
 pub enum Node {
+    /// Syntax: `<ident> ...` or `::<ident> ...`.
     Tag(TagNode),
-    Text(TextNode),
-    Dyn(DynNode),
+    /// Syntax: `(<expr>)` or `"<text-expr>"`.
+    Expr(Expr),
 }
 
-pub enum NodeType {
-    Tag,
-    Text,
-    Dyn,
-}
-
+/// Syntax: `<ident>(<prop1>,<prop2>) { <children> }`
 pub struct TagNode {
     pub ident: TagIdent,
     pub props: Vec<Prop>,
@@ -26,18 +22,17 @@ pub struct TagNode {
 }
 
 pub enum TagIdent {
-    /// A standard Rust path.
+    /// Syntax: `<path1::path2::path3>() {}`
     Path(Path),
-    /// A hyphenated ident. Can not include any paths.
-    /// This is used for custom elements support.
-    Hyphenated(String),
+    /// Syntax: `<hyphenated-name>() {}`
+    Custom(String),
 }
 
 impl TagIdent {
     pub fn span(&self) -> Span {
         match self {
             Self::Path(path) => path.span(),
-            Self::Hyphenated(_) => Span::call_site(),
+            Self::Custom(_) => Span::call_site(),
         }
     }
 }
@@ -49,24 +44,12 @@ pub struct Prop {
 }
 
 pub enum PropType {
-    /// Syntax: `<name>=<expr>`.
+    /// Syntax: `<ident>=<expr>`.
     Plain { ident: Ident },
-    /// Syntax: `<hyphenated-name>=<expr>`.
-    PlainHyphenated { ident: String },
-    /// Syntax: `"<quoted-name>"=<expr>`.
-    PlainQuoted { ident: String },
-    /// Syntax: `<dir>:<prop>=<expr>`.
+    /// Syntax: `<hyphenated-name>=<expr>` or `"<quoted-name>"=<expr>`.
+    Custom { name: String },
+    /// Syntax: `<dir>:<ident>=<expr>`.
     Directive { dir: Ident, ident: Ident },
-    /// Syntax: `r#ref=<expr>`.
-    Ref,
-    /// Syntax: `..attributes=<expr>`
+    /// Syntax: `..<expr>`
     Spread,
-}
-
-pub struct TextNode {
-    pub value: LitStr,
-}
-
-pub struct DynNode {
-    pub value: Expr,
 }

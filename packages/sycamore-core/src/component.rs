@@ -2,14 +2,18 @@
 
 use std::fmt;
 
-use sycamore_reactive::*;
-
-/// Runs the given closure inside a new component scope. In other words, this does the following:
-/// * Create a new untracked scope (see [`untrack`]).
-/// * Call the closure `f` passed to this function.
+/// Runs the given closure inside a new component scope (to detect signal misuse in debug mode).
 #[doc(hidden)]
 pub fn component_scope<T>(f: impl FnOnce() -> T) -> T {
-    untrack(f)
+    // Catch use of signals in component body e.g.
+    // ❌ NO  let y = x.get() * 2;
+    // ✅ YES let y = move || x.get() * 2;
+    // Since we only panic on signals being accessed without scope in debug mode,
+    // there's no reason we have to pay for the untrack in release mode.
+    #[cfg(debug_assertions)]
+    return sycamore_reactive::untrack(f);
+    #[cfg(not(debug_assertions))]
+    f()
 }
 
 /// A trait that is implemented automatically by the `Props` derive macro.
