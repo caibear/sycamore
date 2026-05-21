@@ -466,6 +466,21 @@ pub(crate) fn untrack_in_scope<T>(f: impl FnOnce() -> T, root: &'static Root) ->
     ret
 }
 
+/// Like [`untrack`] but more flexible because it's not a closure.
+pub struct UntrackGuard(Option<DependencyTracker>);
+
+impl Default for UntrackGuard {
+    fn default() -> Self {
+        Self(Root::global().tracker.replace(None))
+    }
+}
+
+impl Drop for UntrackGuard {
+    fn drop(&mut self) {
+        Root::global().tracker.replace(self.0.take());
+    }
+}
+
 /// Get a handle to the current reactive scope.
 pub fn use_current_scope() -> NodeHandle {
     let root = Root::global();

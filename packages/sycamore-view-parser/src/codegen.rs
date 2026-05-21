@@ -142,15 +142,16 @@ impl Codegen {
             }
         };
         quote! {{
+            let __guard = ::sycamore::rt::component_guard();
             let __component = &#ident; // We do this to make sure the compiler can infer the value for `<G>`.
-            ::sycamore::rt::component_scope(move || ::sycamore::rt::Component::create(
+            ::sycamore::rt::Component::create(
                 __component,
                 ::sycamore::rt::element_like_component_builder(__component)
                     #(.#plain_names(#plain_values))*
                     #(#other_attributes)*
                     #children_quoted
                     .build()
-            ))
+            )
         }}
     }
 }

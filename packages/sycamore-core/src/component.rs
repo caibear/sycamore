@@ -2,19 +2,21 @@
 
 use std::fmt;
 
-/// Runs the given closure inside a new component scope (to detect signal misuse in debug mode).
+/// Runs the component in a new scope (to detect signal misuse in debug mode).
+/// Catches use of signals in component body e.g.
+/// ❌ NO  let y = x.get() * 2;
+/// ✅ YES let y = move || x.get() * 2;
 #[doc(hidden)]
-pub fn component_scope<T>(f: impl FnOnce() -> T) -> T {
-    // Catch use of signals in component body e.g.
-    // ❌ NO  let y = x.get() * 2;
-    // ✅ YES let y = move || x.get() * 2;
-    // Since we only panic on signals being accessed without scope in debug mode,
-    // there's no reason we have to pay for the untrack in release mode.
-    #[cfg(debug_assertions)]
-    return sycamore_reactive::untrack(f);
-    #[cfg(not(debug_assertions))]
-    f()
+#[cfg(debug_assertions)]
+pub fn component_guard() -> sycamore_reactive::UntrackGuard {
+    Default::default()
 }
+
+/// Since we only panic on signals being accessed without scope in debug mode,
+/// there's no reason we have to pay for the untrack in release mode.
+#[doc(hidden)]
+#[cfg(not(debug_assertions))]
+pub fn component_guard() {}
 
 /// A trait that is implemented automatically by the `Props` derive macro.
 ///
