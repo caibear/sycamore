@@ -1,6 +1,4 @@
-// TODO reimplement String optimization.
-// use std::any::{Any, TypeId};
-
+use std::any::{Any, TypeId};
 use wasm_bindgen::intern;
 
 use crate::*;
@@ -28,40 +26,50 @@ impl ViewNode for DomNode {
     }
 }
 
+/// Internal implementation that is shared between `DomNode` and `HydrateNode`.
 pub(crate) fn _create_dynamic_view<T: ViewHtmlNode, U: Into<View<T>> + 'static>(
     mut f: impl FnMut() -> U + 'static,
 ) -> View<T> {
-    create_dynamic_view_inner(Box::new(move || f().into()))
-}
-
-/// Internal implementation that is shared between `DomNode` and `HydrateNode`.
-pub(crate) fn create_dynamic_view_inner<T: ViewHtmlNode>(
-    mut f: Box<dyn FnMut() -> View<T> + 'static>,
-) -> View<T> {
-    // TODO reimplement String optimization.
     // If `view` is just a single text node, we can just return this node and set up an
     // effect to update its text value without ever creating more nodes.
-    // if TypeId::of::<U>() == TypeId::of::<String>() {
-    //     create_effect_initial(move || {
-    //         let mut value = Some(f());
-    //         let text: &mut Option<String> = (&mut value as &mut dyn Any).downcast_mut().unwrap();
-    //         let view = View::from_node(T::create_dynamic_text_node(text.take().unwrap().into()));
-    //         debug_assert_eq!(
-    //             view.nodes.len(),
-    //             1,
-    //             "dynamic text view should have exactly one text node"
-    //         );
-    //         let node = view.nodes[0].as_web_sys().clone();
-    //         (
-    //             Box::new(move || {
-    //                 let text = f();
-    //                 let text = (&text as &dyn Any).downcast_ref::<String>().unwrap();
-    //                 node.set_text_content(Some(text));
-    //             }),
-    //             view,
-    //         )
-    //     })
-    // } else {
+    if TypeId::of::<U>() == TypeId::of::<String>() {
+        create_dynamic_view_inner_string_specialization(Box::new(move || {
+            let value: Box<dyn Any> = Box::new(f());
+            let string: Box<String> = value.downcast().unwrap();
+            *string
+        }))
+    } else {
+        create_dynamic_view_inner(Box::new(move || f().into()))
+    }
+}
+
+fn create_dynamic_view_inner_string_specialization<T: ViewHtmlNode>(
+    mut f: Box<dyn FnMut() -> String + 'static>,
+) -> View<T> {
+    create_effect_initial(move || {
+        let mut value = Some(f());
+        let text: &mut Option<String> = &mut value;
+        let view = View::from_node(T::create_dynamic_text_node(text.take().unwrap().into()));
+        debug_assert_eq!(
+            view.nodes.len(),
+            1,
+            "dynamic text view should have exactly one text node"
+        );
+        let node = view.nodes[0].as_web_sys().clone();
+        (
+            Box::new(move || {
+                let text = f();
+                let text = (&text as &dyn Any).downcast_ref::<String>().unwrap();
+                node.set_text_content(Some(text));
+            }),
+            view,
+        )
+    })
+}
+
+fn create_dynamic_view_inner<T: ViewHtmlNode>(
+    mut f: Box<dyn FnMut() -> View<T> + 'static>,
+) -> View<T> {
     let start = T::create_marker_node();
     let start_node = start.as_web_sys().clone();
     let end = T::create_marker_node();
