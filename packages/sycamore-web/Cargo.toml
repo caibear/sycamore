@@ -12,7 +12,7 @@ version.workspace = true
 
 [dependencies]
 futures = { version = "0.3.30", optional = true }
-js-sys = "0.3.67"
+js-sys = { version = "0.3.67", default-features = false }
 paste = "1.0.14"
 smallvec = { version = "1.13.2", features = ["union", "const_generics"], optional = true }
 sycamore-core = { workspace = true }
@@ -20,7 +20,7 @@ sycamore-futures = { workspace = true, optional = true }
 sycamore-macro = { workspace = true }
 sycamore-reactive = { workspace = true, features = ["wasm-bindgen"] }
 wasm-bindgen = "0.2.92"
-web-sys = { version = "0.3.69", features = [
+web-sys = { version = "0.3.69", default-features = false, features = [
 	"Comment",
 	"console",
 	"Node",
