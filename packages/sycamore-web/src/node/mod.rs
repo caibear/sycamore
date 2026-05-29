@@ -83,6 +83,24 @@ pub fn is_hydrating() -> bool {
     IS_HYDRATING.with(Cell::get)
 }
 
+pub struct SetIsHydratingGuard {
+    previous_is_hydrating: bool,
+}
+
+impl SetIsHydratingGuard {
+    pub fn new(set_is_hydrating: bool) -> Self {
+        Self {
+            previous_is_hydrating: IS_HYDRATING.replace(set_is_hydrating)
+        }
+    }
+}
+
+impl Drop for SetIsHydratingGuard {
+    fn drop(&mut self) {
+        IS_HYDRATING.set(self.previous_is_hydrating);
+    }
+}
+
 /// A struct for keeping track of state used for hydration.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct HydrationRegistry {
