@@ -105,7 +105,9 @@ impl Root {
     /// Run the provided closure in a tracked scope. This will detect all the signals that are
     /// accessed and track them in a dependency list.
     pub fn tracked_scope<T>(&self, f: impl FnOnce() -> T) -> (T, DependencyTracker) {
-        let prev = self.tracker.replace(MaybeDependencyTracker::Tracking(DependencyTracker::default()));
+        let prev = self.tracker.replace(MaybeDependencyTracker::Tracking(
+            DependencyTracker::default(),
+        ));
         let ret = f();
         (ret, self.tracker.replace(prev).into_tracker().unwrap())
     }
@@ -479,7 +481,11 @@ pub(crate) fn untrack_in_scope<T>(f: impl FnOnce() -> T, root: &'static Root) ->
     untrack_in_scope_with_maybe_tracker(f, root, MaybeDependencyTracker::Untracked)
 }
 
-fn untrack_in_scope_with_maybe_tracker<T>(f: impl FnOnce() -> T, root: &'static Root, maybe_tracker: MaybeDependencyTracker) -> T {
+fn untrack_in_scope_with_maybe_tracker<T>(
+    f: impl FnOnce() -> T,
+    root: &'static Root,
+    maybe_tracker: MaybeDependencyTracker,
+) -> T {
     let prev = root.tracker.replace(maybe_tracker);
     let ret = f();
     root.tracker.replace(prev);
@@ -488,7 +494,11 @@ fn untrack_in_scope_with_maybe_tracker<T>(f: impl FnOnce() -> T, root: &'static 
 
 /// Same as [`untrack`] but creates warnings if any tracking is performed.
 pub fn untrack_in_component<T>(f: impl FnOnce() -> T) -> T {
-    untrack_in_scope_with_maybe_tracker(f, Root::global(), MaybeDependencyTracker::UntrackedInComponent)
+    untrack_in_scope_with_maybe_tracker(
+        f,
+        Root::global(),
+        MaybeDependencyTracker::UntrackedInComponent,
+    )
 }
 
 /// Get a handle to the current reactive scope.
